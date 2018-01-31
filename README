@@ -1,0 +1,10 @@
+Here is a demo of how one can store passwords in cyphertext.
+
+The code in the "ec" script is intended to be inspiration.
+
+The contents in the "gpg" directory are a small sample of actual
+secrets which I have uploaded with the goal of demonstrating the
+trust I place in GPG. Permission is hereby granted to read, use,
+modify, and redistribute the cipher text ....
+
+LICENSE: FSF LGPLv2.1 (at your option) any later version
