@@ -15,7 +15,8 @@ else
 fi
 
 OUTDIR=gpg
-OUTFILE=$OUTDIR/$(basename $INFILE).gpg
+TIMESTAMP=$(date --utc +"%Y%m%dT%H%M%SZ")
+OUTFILE=$OUTDIR/$(basename $INFILE).${TIMESTAMP}.gpg
 
 gpg \
  --armor \
