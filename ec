@@ -14,12 +14,21 @@ else
     GUSER="${2}"
 fi
 
-OUTDIR=gpg
+if [ "_${3}_" == "__" ]; then
+    OUTDIR=gpg
+else
+    OUTDIR="${3}"
+fi
+mkdir -pv "$OUTDIR"
+
 TIMESTAMP=$(date --utc +"%Y%m%dT%H%M%SZ")
-OUTFILE=$OUTDIR/$(basename $INFILE).${TIMESTAMP}.gpg
+OUTFILE_BASE_NAME=$(basename "$INFILE" | sed -e's/[^A-Za-z0-9\.\-_]/_/g')
+OUTFILE="$OUTDIR"/"${OUTFILE_BASE_NAME}.${TIMESTAMP}.gpg"
 
 gpg \
+ --verbose \
  --armor \
  --recipient="$GUSER" \
- --encrypt $INFILE
-mv -v ${INFILE}.asc ${OUTFILE}
+ --encrypt "$INFILE"
+
+mv -v "${INFILE}.asc" "${OUTFILE}"
