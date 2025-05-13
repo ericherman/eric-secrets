@@ -1,0 +1,82 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright (C) 2025 Eric Herman <eric@freesa.org>
+#
+# This utility takes a string and uses the caller's GPG key to generate a
+# somewhat short (32 hex characters by default) hash-code for that string.
+#
+# It is unlikely that the input string can be guessed based on the output.
+#
+# This is intended to be useful for creating filenames or lookup keys when
+# the natural metadata (name or key) is itself sensitive.
+#
+# For example, a encrypted file per website, where the file might include
+# credentials and personal notes, yet even the name of a political
+# organization's website might itself be sensitive.
+# In this case, rather than naming the file "action.example.org" it could be
+# named using the output of  "./string-to-private-hash action.example.org"
+# Later, the GPG holder could re-run this function to find the same encoded
+# filename for "action.example.org".
+
+set -e
+set -o pipefail
+
+if [ -n "$VERBOSE" ] && [ "$VERBOSE" -gt 0 ]; then
+	set -x
+fi
+
+INPUT="$@"
+if [ -z "$INPUT" ]; then
+	echo "usage:"
+	echo "	$0 [input]"
+	exit 1
+fi
+
+# The --faked-system-time must be a datetime _AFTER_ the creation of the GPG key
+if [ -z "$STPH_FAKED_SYSTEM_TIME" ]; then
+	STPH_FAKED_SYSTEM_TIME=$(date --utc -d'2025-01-01' +%s);
+fi
+
+# As we are running with a --faked-system-time to get a reproducible hash
+# tied our private key, we expect the following warning:
+#	gpg: WARNING: running with faked system time: 2025-01-01 00:00:00
+EXPECTED_REGEXP='^gpg: WARNING: running with faked system time[-: 0-9]*$'
+
+WARN_LOG=/tmp/stph-$USER-$(date --utc +%Y-%m-%d_%H.%M.%S_%Z)-err.log
+touch "$WARN_LOG"
+chmod 600 "$WARN_LOG"
+
+# 128 characters is very long, 32 is likely enough for our purposes,
+SHA512_SUM_LEN=128
+if [ -z "$PRIVATE_HASH_LEN" ]; then
+	PRIVATE_HASH_LEN=32
+fi
+if [ "$PRIVATE_HASH_LEN" -gt "$SHA512_SUM_LEN" ]; then
+	echo >&2 "PRIVATE_HASH_LEN greater than SHA512_SUM_LEN ?"
+	echo >&2 "[ $PRIVATE_HASH_LEN -gt $SHA512_SUM_LEN ]"
+	exit 1
+fi
+
+# This will select the middle $PRIVATE_HASH_LEN characters from the 128 total
+FROM_C=$(( ($SHA512_SUM_LEN/2) - ($PRIVATE_HASH_LEN/2) + 1 ))
+LAST_C=$(( $FROM_C + $PRIVATE_HASH_LEN - 1 ))
+PRIVATE_HASH=$( \
+	echo -n "$INPUT" \
+	| gpg	--sign \
+		--armor \
+		--faked-system-time=$STPH_FAKED_SYSTEM_TIME \
+		2> "$WARN_LOG" \
+	| sha512sum \
+	| cut -c${FROM_C}-${LAST_C} \
+	)
+
+# fail if anything is in the error output other than what id expected
+if [ -n "$(grep -v -E "$EXPECTED_REGEXP" "$WARN_LOG")" ]; then
+	echo >&2 "$WARN_LOG"
+	cat >&2 "$WARN_LOG"
+	exit 2
+else
+	rm "$WARN_LOG"
+fi
+
+echo "$PRIVATE_HASH"
